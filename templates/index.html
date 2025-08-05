@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Check List</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #bb86fc;
+            --secondary-color: #03dac6;
+            --background-color: #121212;
+            --header-bg: #333333;
+            --cell-bg: #1e1e1e;
+            --completed-bg: #2e7d32;
+            --pending-bg: #ffb74d;
+            --text-color: #e0e0e0;
+            --border-color: #444444;
+        }
+
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: var(--background-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            color: var(--text-color);
+        }
+
+        .container {
+            background-color: var(--cell-bg);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            max-width: 900px;
+            width: 100%;
+            margin-top: 20px;
+        }
+
+        h1 {
+            text-align: center;
+            color: var(--primary-color);
+            margin-bottom: 20px;
+            font-weight: 700;
+        }
+        
+        .add-task-form {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            align-items: center;
+        }
+
+        .add-task-form input, .add-task-form button {
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid var(--border-color);
+            background-color: #2c2c2c;
+            color: var(--text-color);
+        }
+
+        .add-task-form input::placeholder {
+            color: #888;
+        }
+
+        .add-task-form input[type="text"] {
+            flex-grow: 1;
+        }
+
+        .add-task-form input[type="date"], .add-task-form input[type="time"] {
+            width: 150px;
+        }
+
+        .add-task-form button {
+            background-color: var(--secondary-color);
+            color: black;
+            font-weight: bold;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+
+        .add-task-form button:hover {
+            background-color: #018786;
+        }
+
+        .task-table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+
+        .task-table th, .task-table td {
+            padding: 12px;
+            border: 1px solid var(--border-color);
+        }
+
+        .task-table thead th {
+            background-color: var(--header-bg);
+            color: #fff;
+            font-weight: 700;
+        }
+
+        .task-row.completed {
+            text-decoration: line-through;
+            opacity: 0.6;
+        }
+
+        .task-status.completed {
+            background-color: var(--completed-bg);
+            color: white;
+            padding: 5px;
+            border-radius: 4px;
+            text-align: center;
+        }
+
+        .task-status.pending {
+            background-color: var(--pending-bg);
+            color: black;
+            padding: 5px;
+            border-radius: 4px;
+            text-align: center;
+        }
+        
+        .action-buttons button {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 1.2em;
+            margin-left: 5px;
+        }
+
+        .action-buttons .complete-btn {
+            color: var(--secondary-color);
+        }
+
+        .action-buttons .delete-btn {
+            color: var(--primary-color);
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Check List</h1>
+
+        <div class="add-task-form">
+            <input type="text" id="titulo-input" placeholder="Título da tarefa">
+            <input type="date" id="dia-input">
+            <input type="time" id="horario-input">
+            <button id="add-btn">Adicionar</button>
+        </div>
+
+        <table class="task-table">
+            <thead>
+                <tr>
+                    <th>Título</th>
+                    <th>Dia</th>
+                    <th>Horário</th>
+                    <th>Status</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody id="task-list">
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        const API_ENDPOINT = 'http://127.0.0.1:5000/tarefas';
+
+        async function fetchTasks() {
+            const taskList = document.getElementById('task-list');
+            taskList.innerHTML = '';
+            
+            try {
+                const response = await fetch(API_ENDPOINT);
+                if (!response.ok) {
+                    throw new Error('Erro ao buscar tarefas');
+                }
+                const tarefas = await response.json();
+                
+                tarefas.forEach(tarefa => {
+                    const row = document.createElement('tr');
+                    row.className = `task-row ${tarefa.completa ? 'completed' : ''}`;
+                    row.dataset.id = tarefa._id;
+
+                    row.innerHTML = `
+                        <td>${tarefa.titulo}</td>
+                        <td>${tarefa.dia}</td>
+                        <td>${tarefa.horario}</td>
+                        <td class="task-status ${tarefa.completa ? 'completed' : 'pending'}">${tarefa.completa ? 'Concluído' : 'Pendente'}</td>
+                        <td class="action-buttons">
+                            <button class="complete-btn" title="Marcar como concluído">${tarefa.completa ? '✅' : '⬜'}</button>
+                            <button class="delete-btn" title="Excluir tarefa">❌</button>
+                        </td>
+                    `;
+                    taskList.appendChild(row);
+                });
+
+            } catch (error) {
+                console.error("Erro:", error);
+                taskList.innerHTML = `<tr><td colspan="5">Erro ao carregar as tarefas. Por favor, verifique a API.</td></tr>`;
+            }
+        }
+        async function addTask() {
+            const titulo = document.getElementById('titulo-input').value;
+            const dia = document.getElementById('dia-input').value;
+            const horario = document.getElementById('horario-input').value;
+
+            if (!titulo || !dia || !horario) {
+                alert('Por favor, preencha todos os campos.');
+                return;
+            }
+
+            try {
+                const response = await fetch(API_ENDPOINT, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ titulo, dia, horario })
+                });
+
+                if (response.ok) {
+                    document.getElementById('titulo-input').value = '';
+                    document.getElementById('dia-input').value = '';
+                    document.getElementById('horario-input').value = '';
+                    fetchTasks();
+                } else {
+                    const error = await response.json();
+                    alert(`Erro ao adicionar tarefa: ${error.erro}`);
+                }
+            } catch (error) {
+                console.error("Erro:", error);
+                alert('Erro de conexão com a API.');
+            }
+        }
+        async function updateTaskStatus(id, completa) {
+            try {
+                await fetch(`${API_ENDPOINT}/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ completa: !completa })
+                });
+                fetchTasks();
+            } catch (error) {
+                console.error("Erro:", error);
+                alert('Erro ao atualizar o status da tarefa.');
+            }
+        }
+        async function deleteTask(id) {
+            if (!confirm("Tem certeza que deseja excluir esta tarefa?")) return;
+            try {
+                await fetch(`${API_ENDPOINT}/${id}`, {
+                    method: 'DELETE'
+                });
+                fetchTasks();
+            } catch (error) {
+                console.error("Erro:", error);
+                alert('Erro ao excluir a tarefa.');
+            }
+        }
+        document.getElementById('add-btn').addEventListener('click', addTask);   
+        document.getElementById('task-list').addEventListener('click', (e) => {
+            const row = e.target.closest('.task-row');
+            if (!row) return;
+
+            const id = row.dataset.id;
+            const isCompleted = row.classList.contains('completed');
+
+            if (e.target.classList.contains('complete-btn')) {
+                updateTaskStatus(id, isCompleted);
+            } else if (e.target.classList.contains('delete-btn')) {
+                deleteTask(id);
+            }
+        });
+        fetchTasks();
+    </script>
+</body>
+</html>
