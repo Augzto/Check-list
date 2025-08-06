@@ -182,14 +182,22 @@
             try {
                 const response = await fetch(API_ENDPOINT);
                 if (!response.ok) {
-                    throw new Error('Erro ao buscar tarefas');
+                    // Tenta ler a mensagem de erro da API
+                    const errorData = await response.json();
+                    throw new Error(`Erro ao buscar tarefas: ${errorData.erro || response.statusText}`);
                 }
                 const tarefas = await response.json();
                 
+                if (tarefas.length === 0) {
+                    taskList.innerHTML = `<tr><td colspan="5" style="text-align: center; color: #888;">Nenhuma tarefa cadastrada.</td></tr>`;
+                    return;
+                }
+
                 tarefas.forEach(tarefa => {
                     const row = document.createElement('tr');
                     row.className = `task-row ${tarefa.completa ? 'completed' : ''}`;
-                    row.dataset.id = tarefa._id;
+                    // CORREÇÃO: Use tarefa.id para SQLite, não tarefa._id (que é para MongoDB)
+                    row.dataset.id = tarefa.id; 
 
                     row.innerHTML = `
                         <td>${tarefa.titulo}</td>
@@ -206,7 +214,7 @@
 
             } catch (error) {
                 console.error("Erro:", error);
-                taskList.innerHTML = `<tr><td colspan="5">Erro ao carregar as tarefas. Por favor, verifique a API.</td></tr>`;
+                taskList.innerHTML = `<tr><td colspan="5" style="text-align: center; color: red;">Erro ao carregar as tarefas: ${error.message || error}. Por favor, verifique a API.</td></tr>`;
             }
         }
         async function addTask() {
@@ -242,30 +250,66 @@
         }
         async function updateTaskStatus(id, completa) {
             try {
-                await fetch(`${API_ENDPOINT}/${id}`, {
+                const response = await fetch(`${API_ENDPOINT}/${id}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ completa: !completa })
                 });
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.erro || response.statusText);
+                }
                 fetchTasks();
             } catch (error) {
                 console.error("Erro:", error);
-                alert('Erro ao atualizar o status da tarefa.');
+                alert(`Erro ao atualizar o status da tarefa: ${error.message || error}.`);
             }
         }
         async function deleteTask(id) {
-            if (!confirm("Tem certeza que deseja excluir esta tarefa?")) return;
+            // Usando um modal simples em vez de confirm()
+            const confirmDelete = await new Promise(resolve => {
+                const modal = document.createElement('div');
+                modal.style.cssText = `
+                    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+                    background: rgba(0,0,0,0.7); display: flex; justify-content: center; align-items: center;
+                    z-index: 1000;
+                `;
+                modal.innerHTML = `
+                    <div style="background: var(--cell-bg); padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.5); text-align: center;">
+                        <p style="color: var(--text-color); margin-bottom: 20px;">Tem certeza que deseja excluir esta tarefa?</p>
+                        <button id="modal-confirm-btn" style="background-color: var(--secondary-color); color: black; padding: 8px 15px; border: none; border-radius: 5px; cursor: pointer; margin-right: 10px;">Sim</button>
+                        <button id="modal-cancel-btn" style="background-color: #555; color: white; padding: 8px 15px; border: none; border-radius: 5px; cursor: pointer;">Não</button>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+
+                document.getElementById('modal-confirm-btn').onclick = () => {
+                    modal.remove();
+                    resolve(true);
+                };
+                document.getElementById('modal-cancel-btn').onclick = () => {
+                    modal.remove();
+                    resolve(false);
+                };
+            });
+
+            if (!confirmDelete) return;
+
             try {
-                await fetch(`${API_ENDPOINT}/${id}`, {
+                const response = await fetch(`${API_ENDPOINT}/${id}`, {
                     method: 'DELETE'
                 });
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.erro || response.statusText);
+                }
                 fetchTasks();
             } catch (error) {
                 console.error("Erro:", error);
-                alert('Erro ao excluir a tarefa.');
+                alert(`Erro ao excluir a tarefa: ${error.message || error}.`);
             }
         }
-        document.getElementById('add-btn').addEventListener('click', addTask);   
+        document.getElementById('add-btn').addEventListener('click', addTask); 
         document.getElementById('task-list').addEventListener('click', (e) => {
             const row = e.target.closest('.task-row');
             if (!row) return;
